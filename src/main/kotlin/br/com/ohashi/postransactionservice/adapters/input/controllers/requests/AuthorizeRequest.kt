@@ -1,5 +1,6 @@
 package br.com.ohashi.postransactionservice.adapters.input.controllers.requests
 
+import br.com.ohashi.postransactionservice.application.ports.input.authorize.AuthorizeTransactionCommand
 import jakarta.validation.constraints.Digits
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Positive
@@ -17,4 +18,10 @@ data class AuthorizeRequest(
 
     @field:NotBlank(message = "{message.authorize-request.terminal-id.not-blank}")
     val terminalId: String
-)
+) {
+    fun toCommand(): AuthorizeTransactionCommand = AuthorizeTransactionCommand(
+        nsu = this.nsu,
+        amount = this.amount,
+        terminalId = this.terminalId
+    )
+}
