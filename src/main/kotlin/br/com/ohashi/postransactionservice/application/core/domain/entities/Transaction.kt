@@ -1,6 +1,6 @@
-package br.com.ohashi.postransactionservice.application.domain.entities
+package br.com.ohashi.postransactionservice.application.core.domain.entities
 
-import br.com.ohashi.postransactionservice.application.domain.enums.TransactionStatus
+import br.com.ohashi.postransactionservice.application.core.domain.enums.TransactionStatus
 import java.math.BigDecimal
 import java.time.Instant
 

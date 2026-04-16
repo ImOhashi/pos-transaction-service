@@ -1,4 +1,4 @@
-package br.com.ohashi.postransactionservice.application.domain.enums
+package br.com.ohashi.postransactionservice.application.core.domain.enums
 
 enum class TransactionStatus {
     AUTHORIZED,

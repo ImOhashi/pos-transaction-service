@@ -1,6 +1,6 @@
 package br.com.ohashi.postransactionservice.adapters.output.entities
 
-import br.com.ohashi.postransactionservice.application.domain.enums.TransactionStatus
+import br.com.ohashi.postransactionservice.application.core.domain.enums.TransactionStatus
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
