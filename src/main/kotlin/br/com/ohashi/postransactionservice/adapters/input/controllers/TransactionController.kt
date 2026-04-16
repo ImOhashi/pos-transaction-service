@@ -24,7 +24,10 @@ class TransactionController(
             "nsu" to authorizeRequest.nsu,
             "terminalId" to authorizeRequest.terminalId
         ) {
-            logger.info("Receiving a request to authorize")
+            logger.info(
+                "Receiving a request to authorize transaction for the nsu=${authorizeRequest.nsu} " +
+                        "and terminalId=${authorizeRequest.terminalId}"
+            )
             val result: AuthorizeTransactionResult = authorizeTransactionInputPort.authorize(
                 authorizeTransactionCommand = authorizeRequest.toCommand()
             )
