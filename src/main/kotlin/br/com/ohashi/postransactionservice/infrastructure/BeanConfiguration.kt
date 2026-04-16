@@ -9,5 +9,6 @@ import org.springframework.context.annotation.Configuration
 class BeanConfiguration {
 
     @Bean
-    fun authorizeTransactionUseCase(): AuthorizeTransactionInputPort = AuthorizeTransactionUseCase()
+    fun authorizeTransactionUseCase(): AuthorizeTransactionInputPort =
+        AuthorizeTransactionUseCase()
 }
