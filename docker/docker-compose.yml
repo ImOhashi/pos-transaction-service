@@ -17,5 +17,41 @@ services:
       retries: 5
       start_period: 10s
 
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: pos-transaction-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    container_name: pos-transaction-otel-collector
+    command:
+      - "--config=/etc/otelcol-contrib/config.yaml"
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "9464:9464"
+    depends_on:
+      jaeger:
+        condition: service_started
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: pos-transaction-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      otel-collector:
+        condition: service_started
+
 volumes:
   postgres_data:
