@@ -1,4 +1,5 @@
 import org.gradle.testing.jacoco.tasks.JacocoReport
+import org.apache.tools.ant.filters.ReplaceTokens
 
 plugins {
     //spring
@@ -100,6 +101,13 @@ allOpen {
 tasks.withType<Test> {
     useJUnitPlatform()
     finalizedBy(tasks.named("jacocoTestReport"))
+}
+
+//resources
+tasks.processResources {
+    filesMatching("application.yaml") {
+        filter<ReplaceTokens>("tokens" to mapOf("projectVersion" to project.version.toString()))
+    }
 }
 
 //coverage
