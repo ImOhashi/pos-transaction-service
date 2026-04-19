@@ -29,7 +29,7 @@ class ConfirmTransactionUseCase(
         )
         logger.info(
             "Transaction loaded for confirmation with transactionId=${transaction.transactionId} " +
-                "and status=${transaction.status}"
+                    "and status=${transaction.status}"
         )
 
         if (transaction.status == TransactionStatus.CONFIRMED) {
@@ -45,14 +45,18 @@ class ConfirmTransactionUseCase(
         )
         logger.info(
             "External confirmation returned status=$confirmationStatus " +
-                "for transactionId=${transaction.transactionId}"
+                    "for transactionId=${transaction.transactionId}"
         )
 
         ensureAcceptedConfirmationStatus(confirmationStatus)
 
-        transaction.status = TransactionStatus.CONFIRMED
         logger.info("Persisting confirmed transaction for transactionId=${transaction.transactionId}")
-        saveTransactionOutputPort.save(transaction)
+        saveTransactionOutputPort.save(
+            transaction = transaction.copy(
+                status = TransactionStatus.CONFIRMED
+            )
+        )
+
         logger.info("Transaction confirmation flow finished for transactionId=${transaction.transactionId}")
     }
 

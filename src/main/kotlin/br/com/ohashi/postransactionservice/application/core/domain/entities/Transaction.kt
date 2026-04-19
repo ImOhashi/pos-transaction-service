@@ -9,6 +9,6 @@ data class Transaction(
     val terminalId: String,
     val nsu: String,
     val amount: BigDecimal,
-    var status: TransactionStatus,
+    val status: TransactionStatus,
     val createdAt: Instant
 )

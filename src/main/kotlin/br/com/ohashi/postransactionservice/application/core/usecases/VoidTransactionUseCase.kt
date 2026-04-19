@@ -24,13 +24,13 @@ class VoidTransactionUseCase(
     override fun voidTransaction(voidTransactionCommand: VoidTransactionCommand) {
         logger.info(
             "Starting transaction void flow for transactionId=${voidTransactionCommand.transactionId} " +
-                "nsu=${voidTransactionCommand.nsu} terminalId=${voidTransactionCommand.terminalId}"
+                    "nsu=${voidTransactionCommand.nsu} terminalId=${voidTransactionCommand.terminalId}"
         )
 
         val transaction: Transaction = findTransaction(voidTransactionCommand)
         logger.info(
             "Transaction loaded for void with transactionId=${transaction.transactionId} " +
-                "and status=${transaction.status}"
+                    "and status=${transaction.status}"
         )
 
         if (transaction.status == TransactionStatus.VOIDED) {
@@ -49,10 +49,13 @@ class VoidTransactionUseCase(
         )
 
         ensureAcceptedVoidStatus(voidStatus)
-        transaction.status = TransactionStatus.VOIDED
 
         logger.info("Persisting voided transaction for transactionId=${transaction.transactionId}")
-        saveTransactionOutputPort.save(transaction)
+        saveTransactionOutputPort.save(
+            transaction = transaction.copy(
+                status = TransactionStatus.VOIDED
+            )
+        )
         logger.info("Transaction void flow finished for transactionId=${transaction.transactionId}")
     }
 
