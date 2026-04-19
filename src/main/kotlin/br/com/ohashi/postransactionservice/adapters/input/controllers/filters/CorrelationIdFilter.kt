@@ -1,5 +1,6 @@
 package br.com.ohashi.postransactionservice.adapters.input.controllers.filters
 
+import br.com.ohashi.postransactionservice.shared.observability.CorrelationIdContext
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -19,24 +20,19 @@ class CorrelationIdFilter : OncePerRequestFilter() {
         val correlationId: String = getCorrelationIdValue(request)
 
         try {
-            MDC.put(CORRELATION_ID_ATTRIBUTE, correlationId)
+            MDC.put(CorrelationIdContext.MDC_KEY, correlationId)
 
-            request.setAttribute(CORRELATION_ID_ATTRIBUTE, correlationId)
-            response.setHeader(CORRELATION_ID_HEADER, correlationId)
+            request.setAttribute(CorrelationIdContext.MDC_KEY, correlationId)
+            response.setHeader(CorrelationIdContext.HEADER_NAME, correlationId)
 
             filterChain.doFilter(request, response)
         } finally {
-            MDC.remove(CORRELATION_ID_ATTRIBUTE)
+            MDC.remove(CorrelationIdContext.MDC_KEY)
         }
     }
 
     private fun getCorrelationIdValue(request: HttpServletRequest): String =
-        request.getHeader(CORRELATION_ID_HEADER)
+        request.getHeader(CorrelationIdContext.HEADER_NAME)
             ?.takeIf { it.isNotBlank() }
             ?: UUID.randomUUID().toString()
-
-    companion object {
-        private const val CORRELATION_ID_HEADER: String = "X-Correlation-Id"
-        private const val CORRELATION_ID_ATTRIBUTE: String = "correlationId"
-    }
 }

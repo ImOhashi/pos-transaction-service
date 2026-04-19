@@ -8,5 +8,6 @@ CREATE TABLE transactions
     created_at     TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Garantia de idempotência
 ALTER TABLE transactions
     ADD CONSTRAINT uk_terminal_nsu UNIQUE (terminal_id, nsu);

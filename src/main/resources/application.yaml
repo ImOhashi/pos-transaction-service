@@ -2,10 +2,22 @@
 server:
   port: ${SERVICE_PORT:8080}
 
+### logging
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %5p --- [%15.15t] [%mdc] %-40.40logger{39} : %m%n%wEx"
+
 ### spring
 spring:
   application:
     name: pos-transaction-service
+  cloud:
+    openfeign:
+      client:
+        config:
+          externalTransactionsClient:
+            connectTimeout: ${EXTERNAL_CLIENT_CONNECT_TIMEOUT_MILLIS:1000}
+            readTimeout: ${EXTERNAL_CLIENT_READ_TIMEOUT_MILLIS:2000}
   datasource:
     driver-class-name: org.postgresql.Driver
     url: jdbc:postgresql://${DATABASE_HOST:localhost}:${DATABASE_PORT:5432}/${DATABASE_NAME:pos_transaction}
@@ -62,3 +74,44 @@ springdoc:
     path: /swagger-ui.html
     operations-sorter: method
     tags-sorter: alpha
+
+### mock
+external:
+  client:
+    base-url: ${EXTERNAL_CLIENT_BASE_URL:http://localhost:8089}
+  mock:
+    scenarios:
+      authorize:
+      confirm: timeout
+      void:
+
+### resilience
+resilience4j:
+  retry:
+    instances:
+      externalAuthorize:
+        max-attempts: ${EXTERNAL_AUTHORIZE_RETRY_MAX_ATTEMPTS:3}
+        wait-duration: ${EXTERNAL_AUTHORIZE_RETRY_WAIT_DURATION:300ms}
+        enable-exponential-backoff: ${EXTERNAL_AUTHORIZE_RETRY_ENABLE_EXPONENTIAL_BACKOFF:true}
+        exponential-backoff-multiplier: ${EXTERNAL_AUTHORIZE_RETRY_EXPONENTIAL_BACKOFF_MULTIPLIER:2.0}
+        exponential-max-wait-duration: ${EXTERNAL_AUTHORIZE_RETRY_EXPONENTIAL_MAX_WAIT_DURATION:2s}
+        enable-randomized-wait: ${EXTERNAL_AUTHORIZE_RETRY_ENABLE_RANDOMIZED_WAIT:true}
+        randomized-wait-factor: ${EXTERNAL_AUTHORIZE_RETRY_RANDOMIZED_WAIT_FACTOR:0.5}
+        retry-exceptions:
+          - feign.RetryableException
+          - feign.FeignException$FeignServerException
+  circuitbreaker:
+    instances:
+      externalAuthorize:
+        sliding-window-size: ${EXTERNAL_AUTHORIZE_CB_SLIDING_WINDOW_SIZE:10}
+        minimum-number-of-calls: ${EXTERNAL_AUTHORIZE_CB_MINIMUM_CALLS:5}
+        failure-rate-threshold: ${EXTERNAL_AUTHORIZE_CB_FAILURE_RATE_THRESHOLD:50}
+        wait-duration-in-open-state: ${EXTERNAL_AUTHORIZE_CB_WAIT_DURATION_IN_OPEN_STATE:30s}
+        permitted-number-of-calls-in-half-open-state: ${EXTERNAL_AUTHORIZE_CB_PERMITTED_CALLS_IN_HALF_OPEN:3}
+        ignore-exceptions:
+          - feign.FeignException$FeignClientException
+  bulkhead:
+    instances:
+      externalAuthorize:
+        max-concurrent-calls: ${EXTERNAL_AUTHORIZE_BULKHEAD_MAX_CONCURRENT_CALLS:10}
+        max-wait-duration: ${EXTERNAL_AUTHORIZE_BULKHEAD_MAX_WAIT_DURATION:0ms}

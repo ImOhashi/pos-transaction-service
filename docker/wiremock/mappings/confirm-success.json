@@ -1,0 +1,28 @@
+{
+  "priority": 10,
+  "request": {
+    "method": "POST",
+    "urlPath": "/external/transactions/confirm",
+    "headers": {
+      "Content-Type": {
+        "contains": "application/json"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$.transactionId"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "result": "CONFIRMED",
+      "transactionId": "{{randomValue type='UUID'}}",
+      "message": "Confirmation approved"
+    }
+  }
+}

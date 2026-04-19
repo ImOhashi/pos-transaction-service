@@ -1,0 +1,34 @@
+{
+  "priority": 10,
+  "request": {
+    "method": "POST",
+    "urlPath": "/external/transactions/authorize",
+    "headers": {
+      "Content-Type": {
+        "contains": "application/json"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$.terminalId"
+      },
+      {
+        "matchesJsonPath": "$.nsu"
+      },
+      {
+        "matchesJsonPath": "$.amount"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "result": "AUTHORIZED",
+      "transactionId": "{{randomValue type='UUID'}}",
+      "message": "Authorization approved"
+    }
+  }
+}

@@ -36,13 +36,21 @@ repositories {
 extra["springCloudVersion"] = "2025.1.1"
 
 //coverage
-val jacocoExcludes = listOf<String>()
+val jacocoExcludes = listOf(
+    "**/PosTransactionServiceApplication*",
+    "**/application/ports/**",
+    "**/adapters/output/gateway/ExternalTransactionsFeignClient*",
+    "**/*\$Companion.class"
+)
 
 dependencies {
     //web
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2")
+
+    //http request
+    implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
 
     //monitoring
     implementation("org.springframework.boot:spring-boot-starter-actuator")
@@ -56,6 +64,9 @@ dependencies {
 
     //resilience
     implementation("org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j")
+    implementation("io.github.resilience4j:resilience4j-bulkhead")
+    implementation("io.github.resilience4j:resilience4j-circuitbreaker")
+    implementation("io.github.resilience4j:resilience4j-retry")
 
     //kotlin
     implementation("org.jetbrains.kotlin:kotlin-reflect")
@@ -63,12 +74,15 @@ dependencies {
 
     //tests
     testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
     testImplementation("org.springframework.boot:spring-boot-starter-flyway-test")
     testImplementation("org.springframework.boot:spring-boot-starter-opentelemetry-test")
     testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation("io.mockk:mockk:1.13.13")
+    testImplementation("com.willowtreeapps.assertk:assertk-jvm:0.28.1")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testImplementation("org.testcontainers:testcontainers-grafana")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
@@ -100,6 +114,8 @@ allOpen {
 //tests
 tasks.withType<Test> {
     useJUnitPlatform()
+    maxHeapSize = "1g"
+    maxParallelForks = 1
     finalizedBy(tasks.named("jacocoTestReport"))
 }
 

@@ -13,6 +13,6 @@ data class AuthorizeResponse(
         nsu = authorizeTransactionResult.nsu,
         amount = authorizeTransactionResult.amount,
         terminalId = authorizeTransactionResult.terminalId,
-        transactionId = authorizeTransactionResult.terminalId
+        transactionId = authorizeTransactionResult.transactionId
     )
 }

@@ -53,5 +53,16 @@ services:
       otel-collector:
         condition: service_started
 
+  wiremock:
+    image: wiremock/wiremock:3.9.1
+    container_name: pos-transaction-wiremock
+    ports:
+      - "8089:8080"
+    volumes:
+      - ./wiremock/mappings:/home/wiremock/mappings
+    command:
+      - --global-response-templating
+      - --verbose
+
 volumes:
   postgres_data:

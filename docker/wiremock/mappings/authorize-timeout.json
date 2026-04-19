@@ -1,0 +1,24 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "urlPath": "/external/transactions/authorize",
+    "headers": {
+      "X-Mock-Scenario": {
+        "equalTo": "timeout"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "fixedDelayMilliseconds": 8000,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "result": "AUTHORIZED",
+      "transactionId": "{{randomValue type='UUID'}}",
+      "message": "Delayed authorization approved"
+    }
+  }
+}

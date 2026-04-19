@@ -1,0 +1,24 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "urlPath": "/external/transactions/void",
+    "headers": {
+      "X-Mock-Scenario": {
+        "equalTo": "timeout"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "fixedDelayMilliseconds": 8000,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "result": "VOIDED",
+      "transactionId": "{{randomValue type='UUID'}}",
+      "message": "Delayed void approved"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "urlPath": "/external/transactions/confirm",
+    "headers": {
+      "X-Mock-Scenario": {
+        "equalTo": "timeout"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "fixedDelayMilliseconds": 8000,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "result": "CONFIRMED",
+      "transactionId": "{{randomValue type='UUID'}}",
+      "message": "Delayed confirmation approved"
+    }
+  }
+}
