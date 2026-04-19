@@ -5,6 +5,7 @@ import assertk.assertions.contains
 import assertk.assertions.hasSize
 import assertk.assertions.isEqualTo
 import br.com.ohashi.postransactionservice.shared.exceptions.ExternalAuthorizationRejectedException
+import br.com.ohashi.postransactionservice.shared.exceptions.TransactionNotFoundException
 import feign.FeignException
 import feign.Request
 import feign.RequestTemplate
@@ -44,6 +45,7 @@ class ApiExceptionHandlerTest {
 
     private val handler = ApiExceptionHandler()
     private val request = MockHttpServletRequest().apply { requestURI = "/v1/pos/transactions/authorize" }
+    private val confirmRequest = MockHttpServletRequest().apply { requestURI = "/v1/pos/transactions/confirm" }
 
     @Test
     fun `should map external authorization rejection to unprocessable entity`() {
@@ -57,6 +59,19 @@ class ApiExceptionHandlerTest {
         assertThat(response.body?.status).isEqualTo(422)
         assertThat(response.body?.error).isEqualTo("UNPROCESSABLE_ENTITY")
         assertThat(response.body?.path).isEqualTo("/v1/pos/transactions/authorize")
+    }
+
+    @Test
+    fun `should map transaction not found to not found`() {
+        val response = handler.handleTransactionNotFound(
+            TransactionNotFoundException("Transaction not found for transactionId=txn-404"),
+            request
+        )
+
+        assertThat(response.statusCode.value()).isEqualTo(404)
+        assertThat(response.body?.message).isEqualTo("Transaction not found for transactionId=txn-404")
+        assertThat(response.body?.status).isEqualTo(404)
+        assertThat(response.body?.error).isEqualTo("NOT_FOUND")
     }
 
     @Test
@@ -98,6 +113,28 @@ class ApiExceptionHandlerTest {
     }
 
     @Test
+    fun `should map retryable exception on confirm to confirmation timeout message`() {
+        val exception = RetryableException(
+            504,
+            "timeout",
+            Request.HttpMethod.POST,
+            Date(),
+            Request.create(
+                Request.HttpMethod.POST,
+                "http://localhost/external/transactions/confirm",
+                emptyMap(),
+                null,
+                RequestTemplate()
+            )
+        )
+
+        val response = handler.handleExternalAuthorizationTimeout(exception, confirmRequest)
+
+        assertThat(response.statusCode.value()).isEqualTo(504)
+        assertThat(response.body?.message).isEqualTo("External confirmation timed out after retry attempts.")
+    }
+
+    @Test
     fun `should map circuit breaker open to service unavailable`() {
         every { circuitBreaker.name } returns "externalAuthorize"
         every { circuitBreaker.state } returns CircuitBreaker.State.OPEN
@@ -109,6 +146,22 @@ class ApiExceptionHandlerTest {
         )
 
         assertThat(response.statusCode.value()).isEqualTo(503)
+    }
+
+    @Test
+    fun `should map circuit breaker open on confirm to confirmation message`() {
+        every { circuitBreaker.name } returns "externalConfirm"
+        every { circuitBreaker.state } returns CircuitBreaker.State.OPEN
+        every { circuitBreaker.circuitBreakerConfig } returns CircuitBreakerConfig.ofDefaults()
+
+        val response = handler.handleExternalAuthorizationCircuitBreakerOpen(
+            CallNotPermittedException.createCallNotPermittedException(circuitBreaker),
+            confirmRequest
+        )
+
+        assertThat(response.statusCode.value()).isEqualTo(503)
+        assertThat(response.body?.message)
+            .isEqualTo("External confirmation is temporarily unavailable because the circuit breaker is open.")
     }
 
     @Test

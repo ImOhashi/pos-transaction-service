@@ -8,6 +8,7 @@ import br.com.ohashi.postransactionservice.adapters.input.controllers.Transactio
 import br.com.ohashi.postransactionservice.adapters.input.controllers.requests.AuthorizeRequest
 import br.com.ohashi.postransactionservice.application.ports.output.AuthorizeTransactionExternallyOutputPort
 import br.com.ohashi.postransactionservice.application.ports.output.requests.AuthorizeTransactionExternalRequest
+import br.com.ohashi.postransactionservice.application.ports.output.responses.AuthorizationStatus
 import br.com.ohashi.postransactionservice.application.ports.output.responses.AuthorizeTransactionExternalResult
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
@@ -118,7 +119,7 @@ class TransactionAuthorizationIntegrationTest {
                 override fun authorize(request: AuthorizeTransactionExternalRequest): AuthorizeTransactionExternalResult =
                     AuthorizeTransactionExternalResult(
                         transactionId = "txn-${counter.incrementAndGet()}",
-                        result = "AUTHORIZED",
+                        result = AuthorizationStatus.AUTHORIZED,
                         approved = true,
                         message = "approved"
                     )

@@ -2,13 +2,12 @@ package br.com.ohashi.postransactionservice.adapters
 
 import assertk.assertThat
 import assertk.assertions.isEqualTo
-import assertk.assertions.isInstanceOf
 import assertk.assertions.isTrue
 import br.com.ohashi.postransactionservice.adapters.output.gateway.ExternalAuthorizationGateway
 import br.com.ohashi.postransactionservice.adapters.output.gateway.request.ExternalAuthorizeRequest
 import br.com.ohashi.postransactionservice.adapters.output.gateway.response.ExternalAuthorizeResponse
 import br.com.ohashi.postransactionservice.application.ports.output.requests.AuthorizeTransactionExternalRequest
-import br.com.ohashi.postransactionservice.shared.exceptions.ExternalAuthorizationRejectedException
+import br.com.ohashi.postransactionservice.application.ports.output.responses.AuthorizationStatus
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
@@ -47,33 +46,33 @@ class AuthorizeTransactionExternallyAdapterTest {
         assertThat(requestSlot.captured.nsu).isEqualTo("nsu-1")
         assertThat(requestSlot.captured.amount).isEqualTo(BigDecimal("12.30"))
         assertThat(result.transactionId).isEqualTo("txn-1")
-        assertThat(result.result).isEqualTo("AUTHORIZED")
+        assertThat(result.result).isEqualTo(AuthorizationStatus.AUTHORIZED)
         assertThat(result.approved).isTrue()
         assertThat(result.message).isEqualTo("approved")
         verify(exactly = 1) { externalAuthorizationGateway.authorize(any()) }
     }
 
     @Test
-    fun `should throw when external authorization is rejected`() {
+    fun `should map non authorized response without throwing`() {
         every {
             externalAuthorizationGateway.authorize(any())
         } returns ExternalAuthorizeResponse(
             transactionId = "txn-2",
-            result = "DENIED",
+            result = "NON_AUTHORIZED",
             message = "denied"
         )
 
-        val exception = runCatching {
-            AuthorizeTransactionExternallyAdapter(externalAuthorizationGateway).authorize(
-                AuthorizeTransactionExternalRequest(
-                    terminalId = "terminal-2",
-                    nsu = "nsu-2",
-                    amount = BigDecimal("5.00")
-                )
+        val result = AuthorizeTransactionExternallyAdapter(externalAuthorizationGateway).authorize(
+            AuthorizeTransactionExternalRequest(
+                terminalId = "terminal-2",
+                nsu = "nsu-2",
+                amount = BigDecimal("5.00")
             )
-        }.exceptionOrNull() ?: error("Expected exception")
+        )
 
-        assertThat(exception).isInstanceOf(ExternalAuthorizationRejectedException::class)
-        assertThat(exception.message).isEqualTo("External authorization was rejected with result=DENIED.")
+        assertThat(result.transactionId).isEqualTo("txn-2")
+        assertThat(result.result).isEqualTo(AuthorizationStatus.NON_AUTHORIZED)
+        assertThat(result.approved).isEqualTo(false)
+        assertThat(result.message).isEqualTo("denied")
     }
 }

@@ -1,5 +1,6 @@
 package br.com.ohashi.postransactionservice.adapters
 
+import br.com.ohashi.postransactionservice.adapters.output.entities.toDomain
 import br.com.ohashi.postransactionservice.adapters.output.repositories.TransactionRepository
 import br.com.ohashi.postransactionservice.application.core.domain.entities.Transaction
 import br.com.ohashi.postransactionservice.application.ports.output.FindTransactionByNsuAndTerminalIdOutputPort
@@ -21,14 +22,7 @@ class FindTransactionByNsuAndTerminalIdRepositoryAdapter(
                         "with status=${entity.status}"
                 )
 
-                Transaction(
-                    transactionId = entity.transactionId,
-                    terminalId = entity.terminalId,
-                    nsu = entity.nsu,
-                    amount = entity.amount,
-                    status = entity.status,
-                    createdAt = entity.createdAt
-                )
+                entity.toDomain()
             }
             .orElseGet {
                 logger.info("No transaction found by nsu=$nsu and terminalId=$terminalId")

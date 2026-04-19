@@ -3,6 +3,7 @@ package br.com.ohashi.postransactionservice.adapters.input.controllers.handlers
 import br.com.ohashi.postransactionservice.adapters.input.controllers.responses.error.ApiErrorResponse
 import br.com.ohashi.postransactionservice.adapters.input.controllers.responses.error.ApiValidationError
 import br.com.ohashi.postransactionservice.shared.exceptions.ExternalAuthorizationRejectedException
+import br.com.ohashi.postransactionservice.shared.exceptions.TransactionNotFoundException
 import feign.FeignException
 import feign.RetryableException
 import jakarta.servlet.http.HttpServletRequest
@@ -22,6 +23,20 @@ import java.time.OffsetDateTime
 class ApiExceptionHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    @ExceptionHandler(TransactionNotFoundException::class)
+    fun handleTransactionNotFound(
+        exception: TransactionNotFoundException,
+        request: HttpServletRequest
+    ): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Transaction lookup failed: {}", exception.message)
+
+        return buildErrorResponse(
+            status = HttpStatus.NOT_FOUND,
+            message = exception.message ?: "Transaction not found.",
+            request = request
+        )
+    }
+
     @ExceptionHandler(ExternalAuthorizationRejectedException::class)
     fun handleExternalAuthorizationRejected(
         exception: ExternalAuthorizationRejectedException,
@@ -37,11 +52,12 @@ class ApiExceptionHandler {
         exception: RetryableException,
         request: HttpServletRequest
     ): ResponseEntity<ApiErrorResponse> {
-        logger.error("External authorization timed out after retries", exception)
+        val operation = resolveExternalOperation(request)
+        logger.error("External $operation timed out after retries", exception)
 
         return buildErrorResponse(
             status = HttpStatus.GATEWAY_TIMEOUT,
-            message = "External authorization timed out after retry attempts.",
+            message = "External $operation timed out after retry attempts.",
             request = request
         )
     }
@@ -51,11 +67,12 @@ class ApiExceptionHandler {
         exception: CallNotPermittedException,
         request: HttpServletRequest
     ): ResponseEntity<ApiErrorResponse> {
-        logger.error("External authorization circuit breaker is open", exception)
+        val operation = resolveExternalOperation(request)
+        logger.error("External $operation circuit breaker is open", exception)
 
         return buildErrorResponse(
             status = HttpStatus.SERVICE_UNAVAILABLE,
-            message = "External authorization is temporarily unavailable because the circuit breaker is open.",
+            message = "External $operation is temporarily unavailable because the circuit breaker is open.",
             request = request
         )
     }
@@ -65,11 +82,12 @@ class ApiExceptionHandler {
         exception: BulkheadFullException,
         request: HttpServletRequest
     ): ResponseEntity<ApiErrorResponse> {
-        logger.error("External authorization bulkhead limit reached", exception)
+        val operation = resolveExternalOperation(request)
+        logger.error("External $operation bulkhead limit reached", exception)
 
         return buildErrorResponse(
             status = HttpStatus.SERVICE_UNAVAILABLE,
-            message = "External authorization is temporarily unavailable because the concurrency limit was reached.",
+            message = "External $operation is temporarily unavailable because the concurrency limit was reached.",
             request = request
         )
     }
@@ -79,15 +97,17 @@ class ApiExceptionHandler {
         exception: FeignException.FeignServerException,
         request: HttpServletRequest
     ): ResponseEntity<ApiErrorResponse> {
+        val operation = resolveExternalOperation(request)
         logger.error(
-            "External authorization failed with upstream server error status={}",
+            "External {} failed with upstream server error status={}",
+            operation,
             exception.status(),
             exception
         )
 
         return buildErrorResponse(
             status = HttpStatus.SERVICE_UNAVAILABLE,
-            message = "External authorization failed due to upstream server error status=${exception.status()}.",
+            message = "External $operation failed due to upstream server error status=${exception.status()}.",
             request = request
         )
     }
@@ -97,15 +117,17 @@ class ApiExceptionHandler {
         exception: FeignException.FeignClientException,
         request: HttpServletRequest
     ): ResponseEntity<ApiErrorResponse> {
+        val operation = resolveExternalOperation(request)
         logger.error(
-            "External authorization failed with upstream client error status={}",
+            "External {} failed with upstream client error status={}",
+            operation,
             exception.status(),
             exception
         )
 
         return buildErrorResponse(
             status = HttpStatus.SERVICE_UNAVAILABLE,
-            message = "External authorization request was rejected by upstream with status=${exception.status()}.",
+            message = "External $operation request was rejected by upstream with status=${exception.status()}.",
             request = request
         )
     }
@@ -174,4 +196,10 @@ class ApiExceptionHandler {
                 errors = emptyList()
             )
         )
+
+    private fun resolveExternalOperation(request: HttpServletRequest): String =
+        when {
+            request.requestURI.contains("/confirm") -> "confirmation"
+            else -> "authorization"
+        }
 }

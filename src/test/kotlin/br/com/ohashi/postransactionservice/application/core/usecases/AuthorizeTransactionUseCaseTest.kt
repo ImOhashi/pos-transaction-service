@@ -2,6 +2,7 @@ package br.com.ohashi.postransactionservice.application.core.usecases
 
 import assertk.assertThat
 import assertk.assertions.isEqualTo
+import assertk.assertions.isInstanceOf
 import assertk.assertions.isNotNull
 import br.com.ohashi.postransactionservice.application.core.domain.entities.Transaction
 import br.com.ohashi.postransactionservice.application.core.domain.enums.TransactionStatus
@@ -10,7 +11,9 @@ import br.com.ohashi.postransactionservice.application.ports.output.AuthorizeTra
 import br.com.ohashi.postransactionservice.application.ports.output.FindTransactionByNsuAndTerminalIdOutputPort
 import br.com.ohashi.postransactionservice.application.ports.output.SaveTransactionOutputPort
 import br.com.ohashi.postransactionservice.application.ports.output.requests.AuthorizeTransactionExternalRequest
+import br.com.ohashi.postransactionservice.application.ports.output.responses.AuthorizationStatus
 import br.com.ohashi.postransactionservice.application.ports.output.responses.AuthorizeTransactionExternalResult
+import br.com.ohashi.postransactionservice.shared.exceptions.ExternalAuthorizationRejectedException
 import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
@@ -93,7 +96,7 @@ class AuthorizeTransactionUseCaseTest {
             authorizeTransactionExternallyOutputPort.authorize(capture(requestSlot))
         } returns AuthorizeTransactionExternalResult(
             transactionId = "txn-999",
-            result = "AUTHORIZED",
+            result = AuthorizationStatus.AUTHORIZED,
             approved = true,
             message = "approved"
         )
@@ -120,5 +123,35 @@ class AuthorizeTransactionUseCaseTest {
 
         verify(exactly = 1) { authorizeTransactionExternallyOutputPort.authorize(any()) }
         verify(exactly = 1) { saveTransactionOutputPort.save(any()) }
+    }
+
+    @Test
+    fun `should throw when external authorization is not authorized`() {
+        every {
+            findTransactionByNsuAndTerminalIdOutputPort.find("nsu-3", "terminal-3")
+        } returns null
+        every {
+            authorizeTransactionExternallyOutputPort.authorize(any())
+        } returns AuthorizeTransactionExternalResult(
+            transactionId = "txn-1000",
+            result = AuthorizationStatus.NON_AUTHORIZED,
+            approved = false,
+            message = "denied"
+        )
+
+        val exception = runCatching {
+            useCase.authorize(
+                AuthorizeTransactionCommand(
+                    terminalId = "terminal-3",
+                    nsu = "nsu-3",
+                    amount = BigDecimal("30.00")
+                )
+            )
+        }.exceptionOrNull() ?: error("Expected exception")
+
+        assertThat(exception).isInstanceOf(ExternalAuthorizationRejectedException::class)
+        assertThat(exception.message).isEqualTo("External authorization was rejected with result=NON_AUTHORIZED.")
+        verify(exactly = 1) { authorizeTransactionExternallyOutputPort.authorize(any()) }
+        verify(exactly = 0) { saveTransactionOutputPort.save(any()) }
     }
 }

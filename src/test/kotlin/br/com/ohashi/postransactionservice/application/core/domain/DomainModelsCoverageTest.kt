@@ -5,6 +5,7 @@ import assertk.assertions.isEqualTo
 import br.com.ohashi.postransactionservice.adapters.output.entities.TransactionEntity
 import br.com.ohashi.postransactionservice.application.core.domain.entities.Transaction
 import br.com.ohashi.postransactionservice.application.core.domain.enums.TransactionStatus
+import br.com.ohashi.postransactionservice.application.ports.output.responses.AuthorizationStatus
 import br.com.ohashi.postransactionservice.application.ports.output.responses.AuthorizeTransactionExternalResult
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
@@ -56,13 +57,13 @@ class DomainModelsCoverageTest {
     fun `should expose external authorization result fields`() {
         val result = AuthorizeTransactionExternalResult(
             transactionId = "txn-3",
-            result = "AUTHORIZED",
+            result = AuthorizationStatus.AUTHORIZED,
             approved = true,
             message = "approved"
         )
 
         assertThat(result.transactionId).isEqualTo("txn-3")
-        assertThat(result.result).isEqualTo("AUTHORIZED")
+        assertThat(result.result).isEqualTo(AuthorizationStatus.AUTHORIZED)
         assertThat(result.approved).isEqualTo(true)
         assertThat(result.message).isEqualTo("approved")
     }

@@ -4,9 +4,9 @@ import br.com.ohashi.postransactionservice.adapters.output.gateway.ExternalAutho
 import br.com.ohashi.postransactionservice.adapters.output.gateway.request.ExternalAuthorizeRequest
 import br.com.ohashi.postransactionservice.application.ports.output.AuthorizeTransactionExternallyOutputPort
 import br.com.ohashi.postransactionservice.application.ports.output.requests.AuthorizeTransactionExternalRequest
+import br.com.ohashi.postransactionservice.application.ports.output.responses.AuthorizationStatus
 import br.com.ohashi.postransactionservice.application.ports.output.responses.AuthorizeTransactionExternalResult
 import br.com.ohashi.postransactionservice.shared.LoggableClass
-import br.com.ohashi.postransactionservice.shared.exceptions.ExternalAuthorizationRejectedException
 import org.springframework.stereotype.Component
 
 @Component
@@ -27,16 +27,12 @@ class AuthorizeTransactionExternallyAdapter(
                     "transactionId=${response.transactionId}"
         )
 
-        if (response.result != AUTHORIZED_RESULT) {
-            throw ExternalAuthorizationRejectedException(
-                "External authorization was rejected with result=${response.result}."
-            )
-        }
+        val authorizationStatus = AuthorizationStatus.valueOf(response.result)
 
         return AuthorizeTransactionExternalResult(
             transactionId = response.transactionId,
-            result = response.result,
-            approved = true,
+            result = authorizationStatus,
+            approved = authorizationStatus == AuthorizationStatus.AUTHORIZED,
             message = response.message
         )
     }
@@ -46,8 +42,4 @@ class AuthorizeTransactionExternallyAdapter(
         nsu = nsu,
         amount = amount
     )
-
-    companion object {
-        private const val AUTHORIZED_RESULT = "AUTHORIZED"
-    }
 }

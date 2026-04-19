@@ -1,6 +1,8 @@
 package br.com.ohashi.postransactionservice.adapters
 
 import br.com.ohashi.postransactionservice.adapters.output.entities.TransactionEntity
+import br.com.ohashi.postransactionservice.adapters.output.entities.toDomain
+import br.com.ohashi.postransactionservice.adapters.output.entities.toEntity
 import br.com.ohashi.postransactionservice.adapters.output.repositories.TransactionRepository
 import br.com.ohashi.postransactionservice.application.core.domain.entities.Transaction
 import br.com.ohashi.postransactionservice.application.ports.output.SaveTransactionOutputPort
@@ -18,28 +20,10 @@ class SaveTransactionRepositoryAdapter(
                 "with status=${transaction.status}"
         )
 
-        val savedTransaction = transactionRepository.save(transaction.toEntity())
+        val savedTransaction: TransactionEntity = transactionRepository.save(transaction.toEntity())
 
         logger.info("Transaction persisted transactionId=${savedTransaction.transactionId}")
 
         return savedTransaction.toDomain()
     }
-
-    private fun Transaction.toEntity() = TransactionEntity(
-        transactionId = transactionId,
-        terminalId = terminalId,
-        nsu = nsu,
-        amount = amount,
-        status = status,
-        createdAt = createdAt
-    )
-
-    private fun TransactionEntity.toDomain() = Transaction(
-        transactionId = transactionId,
-        terminalId = terminalId,
-        nsu = nsu,
-        amount = amount,
-        status = status,
-        createdAt = createdAt
-    )
 }

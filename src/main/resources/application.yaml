@@ -47,12 +47,12 @@ management:
       probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
     export:
       otlp:
-        enabled: ${OTLP_TRACING_EXPORT_ENABLED:false}
+        enabled: ${OTLP_TRACING_EXPORT_ENABLED:true}
   opentelemetry:
     tracing:
       export:
         otlp:
-          endpoint: ${OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}
+          endpoint: ${OTLP_TRACING_ENDPOINT:${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://otel-collector:4318/v1/traces}}
   otlp:
     metrics:
       export:
@@ -82,7 +82,7 @@ external:
   mock:
     scenarios:
       authorize:
-      confirm: timeout
+      confirm:
       void:
 
 ### resilience
@@ -100,6 +100,28 @@ resilience4j:
         retry-exceptions:
           - feign.RetryableException
           - feign.FeignException$FeignServerException
+      externalConfirm:
+        max-attempts: ${EXTERNAL_CONFIRM_RETRY_MAX_ATTEMPTS:3}
+        wait-duration: ${EXTERNAL_CONFIRM_RETRY_WAIT_DURATION:300ms}
+        enable-exponential-backoff: ${EXTERNAL_CONFIRM_RETRY_ENABLE_EXPONENTIAL_BACKOFF:true}
+        exponential-backoff-multiplier: ${EXTERNAL_CONFIRM_RETRY_EXPONENTIAL_BACKOFF_MULTIPLIER:2.0}
+        exponential-max-wait-duration: ${EXTERNAL_CONFIRM_RETRY_EXPONENTIAL_MAX_WAIT_DURATION:2s}
+        enable-randomized-wait: ${EXTERNAL_CONFIRM_RETRY_ENABLE_RANDOMIZED_WAIT:true}
+        randomized-wait-factor: ${EXTERNAL_CONFIRM_RETRY_RANDOMIZED_WAIT_FACTOR:0.5}
+        retry-exceptions:
+          - feign.RetryableException
+          - feign.FeignException$FeignServerException
+      externalVoid:
+        max-attempts: ${EXTERNAL_VOID_RETRY_MAX_ATTEMPTS:3}
+        wait-duration: ${EXTERNAL_VOID_RETRY_WAIT_DURATION:300ms}
+        enable-exponential-backoff: ${EXTERNAL_VOID_RETRY_ENABLE_EXPONENTIAL_BACKOFF:true}
+        exponential-backoff-multiplier: ${EXTERNAL_VOID_RETRY_EXPONENTIAL_BACKOFF_MULTIPLIER:2.0}
+        exponential-max-wait-duration: ${EXTERNAL_VOID_RETRY_EXPONENTIAL_MAX_WAIT_DURATION:2s}
+        enable-randomized-wait: ${EXTERNAL_VOID_RETRY_ENABLE_RANDOMIZED_WAIT:true}
+        randomized-wait-factor: ${EXTERNAL_VOID_RETRY_RANDOMIZED_WAIT_FACTOR:0.5}
+        retry-exceptions:
+          - feign.RetryableException
+          - feign.FeignException$FeignServerException
   circuitbreaker:
     instances:
       externalAuthorize:
@@ -110,8 +132,30 @@ resilience4j:
         permitted-number-of-calls-in-half-open-state: ${EXTERNAL_AUTHORIZE_CB_PERMITTED_CALLS_IN_HALF_OPEN:3}
         ignore-exceptions:
           - feign.FeignException$FeignClientException
+      externalConfirm:
+        sliding-window-size: ${EXTERNAL_CONFIRM_CB_SLIDING_WINDOW_SIZE:10}
+        minimum-number-of-calls: ${EXTERNAL_CONFIRM_CB_MINIMUM_CALLS:5}
+        failure-rate-threshold: ${EXTERNAL_CONFIRM_CB_FAILURE_RATE_THRESHOLD:50}
+        wait-duration-in-open-state: ${EXTERNAL_CONFIRM_CB_WAIT_DURATION_IN_OPEN_STATE:30s}
+        permitted-number-of-calls-in-half-open-state: ${EXTERNAL_CONFIRM_CB_PERMITTED_CALLS_IN_HALF_OPEN:3}
+        ignore-exceptions:
+          - feign.FeignException$FeignClientException
+      externalVoid:
+        sliding-window-size: ${EXTERNAL_VOID_CB_SLIDING_WINDOW_SIZE:10}
+        minimum-number-of-calls: ${EXTERNAL_VOID_CB_MINIMUM_CALLS:5}
+        failure-rate-threshold: ${EXTERNAL_VOID_CB_FAILURE_RATE_THRESHOLD:50}
+        wait-duration-in-open-state: ${EXTERNAL_VOID_CB_WAIT_DURATION_IN_OPEN_STATE:30s}
+        permitted-number-of-calls-in-half-open-state: ${EXTERNAL_VOID_CB_PERMITTED_CALLS_IN_HALF_OPEN:3}
+        ignore-exceptions:
+          - feign.FeignException$FeignClientException
   bulkhead:
     instances:
       externalAuthorize:
         max-concurrent-calls: ${EXTERNAL_AUTHORIZE_BULKHEAD_MAX_CONCURRENT_CALLS:10}
         max-wait-duration: ${EXTERNAL_AUTHORIZE_BULKHEAD_MAX_WAIT_DURATION:0ms}
+      externalConfirm:
+        max-concurrent-calls: ${EXTERNAL_CONFIRM_BULKHEAD_MAX_CONCURRENT_CALLS:10}
+        max-wait-duration: ${EXTERNAL_CONFIRM_BULKHEAD_MAX_WAIT_DURATION:0ms}
+      externalVoid:
+        max-concurrent-calls: ${EXTERNAL_VOID_BULKHEAD_MAX_CONCURRENT_CALLS:10}
+        max-wait-duration: ${EXTERNAL_VOID_BULKHEAD_MAX_WAIT_DURATION:0ms}

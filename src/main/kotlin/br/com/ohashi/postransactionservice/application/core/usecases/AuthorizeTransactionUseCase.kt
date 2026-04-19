@@ -9,8 +9,10 @@ import br.com.ohashi.postransactionservice.application.ports.output.requests.Aut
 import br.com.ohashi.postransactionservice.application.ports.output.AuthorizeTransactionExternallyOutputPort
 import br.com.ohashi.postransactionservice.application.ports.output.FindTransactionByNsuAndTerminalIdOutputPort
 import br.com.ohashi.postransactionservice.application.ports.output.SaveTransactionOutputPort
+import br.com.ohashi.postransactionservice.application.ports.output.responses.AuthorizationStatus
 import br.com.ohashi.postransactionservice.application.ports.output.responses.AuthorizeTransactionExternalResult
 import br.com.ohashi.postransactionservice.shared.LoggableClass
+import br.com.ohashi.postransactionservice.shared.exceptions.ExternalAuthorizationRejectedException
 import java.time.Instant
 
 class AuthorizeTransactionUseCase(
@@ -31,23 +33,34 @@ class AuthorizeTransactionUseCase(
         )
 
         if (existingTransaction != null) {
-            logger.info(
-                "Returning stored transactionId=${existingTransaction.transactionId} " +
-                        "with status=${existingTransaction.status}"
-            )
-            return AuthorizeTransactionResult.mountByTransaction(existingTransaction)
+            return returnStoredTransaction(existingTransaction)
         }
 
         logger.info("No existing transaction found for authorization request")
 
-        val externalAuthorization = authorizeExternally(authorizeTransactionCommand)
-        val persistedTransaction = saveAuthorizedTransaction(authorizeTransactionCommand, externalAuthorization)
+        val externalAuthorization: AuthorizeTransactionExternalResult = authorizeExternally(authorizeTransactionCommand)
+
+        if (externalAuthorization.result != AuthorizationStatus.AUTHORIZED) {
+            throw ExternalAuthorizationRejectedException(
+                "External authorization was rejected with result=${externalAuthorization.result}."
+            )
+        }
+
+        val persistedTransaction: Transaction = saveAuthorizedTransaction(authorizeTransactionCommand, externalAuthorization)
 
         return AuthorizeTransactionResult.mountByTransaction(persistedTransaction)
     }
 
     private fun findExistingTransaction(nsu: String, terminalId: String): Transaction? =
         findTransactionByNsuAndTerminalIdOutputPort.find(nsu = nsu, terminalId = terminalId)
+
+    private fun returnStoredTransaction(existingTransaction: Transaction): AuthorizeTransactionResult {
+        logger.info(
+            "Returning stored transactionId=${existingTransaction.transactionId} " +
+                    "with status=${existingTransaction.status}"
+        )
+        return AuthorizeTransactionResult.mountByTransaction(existingTransaction)
+    }
 
     private fun authorizeExternally(command: AuthorizeTransactionCommand): AuthorizeTransactionExternalResult =
         authorizeTransactionExternallyOutputPort.authorize(

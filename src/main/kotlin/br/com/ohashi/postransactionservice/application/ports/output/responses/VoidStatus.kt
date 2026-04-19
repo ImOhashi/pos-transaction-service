@@ -1,0 +1,12 @@
+package br.com.ohashi.postransactionservice.application.ports.output.responses
+
+enum class VoidStatus {
+    VOIDED,
+    ALREADY_VOIDED,
+    ERROR;
+
+    companion object {
+        fun from(value: String): VoidStatus =
+            entries.firstOrNull { it.name == value } ?: ERROR
+    }
+}
