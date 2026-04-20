@@ -81,9 +81,9 @@ external:
     base-url: ${EXTERNAL_CLIENT_BASE_URL:http://localhost:8089}
   mock:
     scenarios:
-      authorize:
-      confirm:
-      void:
+      authorize: ${EXTERNAL_MOCK_SCENARIO_AUTHORIZE:}
+      confirm: ${EXTERNAL_MOCK_SCENARIO_CONFIRM:}
+      void: ${EXTERNAL_MOCK_SCENARIO_VOID:}
 
 ### resilience
 resilience4j:

@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component
 @Component
 class FindTransactionByNsuAndTerminalIdRepositoryAdapter(
     private val transactionRepository: TransactionRepository
-    ) : FindTransactionByNsuAndTerminalIdOutputPort, LoggableClass() {
+) : FindTransactionByNsuAndTerminalIdOutputPort, LoggableClass() {
 
     override fun find(nsu: String, terminalId: String): Transaction? {
         return inSpan(
@@ -27,7 +27,7 @@ class FindTransactionByNsuAndTerminalIdRepositoryAdapter(
                 .map { entity ->
                     logger.info(
                         "Found existing transaction transactionId=${entity.transactionId} " +
-                            "with status=${entity.status}"
+                                "with status=${entity.status}"
                     )
 
                     entity.toDomain()

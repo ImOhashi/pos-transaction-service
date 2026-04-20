@@ -21,7 +21,7 @@ class VoidTransactionExternallyAdapter(
 
         logger.info(
             "Received external void response result=${response.result} " +
-                "transactionId=${response.transactionId}"
+                    "transactionId=${response.transactionId}"
         )
 
         return VoidStatus.from(response.result)

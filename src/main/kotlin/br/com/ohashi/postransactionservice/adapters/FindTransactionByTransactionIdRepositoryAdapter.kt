@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component
 @Component
 class FindTransactionByTransactionIdRepositoryAdapter(
     private val transactionRepository: TransactionRepository
-    ) : FindTransactionByTransactionIdOutputPort, LoggableClass() {
+) : FindTransactionByTransactionIdOutputPort, LoggableClass() {
 
     override fun find(transactionId: String): Transaction {
         return inSpan(

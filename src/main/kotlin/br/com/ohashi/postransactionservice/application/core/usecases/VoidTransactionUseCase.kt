@@ -20,7 +20,7 @@ class VoidTransactionUseCase(
     private val findTransactionByNsuAndTerminalIdOutputPort: FindTransactionByNsuAndTerminalIdOutputPort,
     private val voidTransactionExternallyOutputPort: VoidTransactionExternallyOutputPort,
     private val saveTransactionOutputPort: SaveTransactionOutputPort
-    ) : VoidTransactionInputPort, LoggableClass() {
+) : VoidTransactionInputPort, LoggableClass() {
 
     override fun voidTransaction(voidTransactionCommand: VoidTransactionCommand) {
         inSpan(
@@ -34,7 +34,7 @@ class VoidTransactionUseCase(
                         "nsu=${voidTransactionCommand.nsu} terminalId=${voidTransactionCommand.terminalId}"
             )
 
-            val transaction: Transaction = findTransaction(voidTransactionCommand)
+            val transaction: Transaction = findTransaction(voidTransactionCommand = voidTransactionCommand)
             logger.info(
                 "Transaction loaded for void with transactionId=${transaction.transactionId} " +
                         "and status=${transaction.status}"
@@ -49,13 +49,13 @@ class VoidTransactionUseCase(
 
             logger.info("Sending external void for transactionId=${transaction.transactionId}")
             val voidStatus: VoidStatus = voidTransactionExternallyOutputPort.voidTransaction(
-                VoidTransactionExternalRequest(transactionId = transaction.transactionId)
+                request = VoidTransactionExternalRequest(transactionId = transaction.transactionId)
             )
             logger.info(
                 "External void returned status=$voidStatus for transactionId=${transaction.transactionId}"
             )
 
-            ensureAcceptedVoidStatus(voidStatus)
+            ensureAcceptedVoidStatus(voidStatus = voidStatus)
 
             logger.info("Persisting voided transaction for transactionId=${transaction.transactionId}")
             saveTransactionOutputPort.save(

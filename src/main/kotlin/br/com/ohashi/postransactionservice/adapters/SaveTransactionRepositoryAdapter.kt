@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component
 @Component
 class SaveTransactionRepositoryAdapter(
     private val transactionRepository: TransactionRepository
-    ) : SaveTransactionOutputPort, LoggableClass() {
+) : SaveTransactionOutputPort, LoggableClass() {
 
     override fun save(transaction: Transaction): Transaction {
         return inSpan(
@@ -25,7 +25,7 @@ class SaveTransactionRepositoryAdapter(
         ) {
             logger.info(
                 "Persisting transaction transactionId=${transaction.transactionId} " +
-                    "with status=${transaction.status}"
+                        "with status=${transaction.status}"
             )
 
             val savedTransaction: TransactionEntity = transactionRepository.save(transaction.toEntity())

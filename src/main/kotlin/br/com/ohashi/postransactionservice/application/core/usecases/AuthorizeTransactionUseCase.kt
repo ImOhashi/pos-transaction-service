@@ -20,7 +20,7 @@ class AuthorizeTransactionUseCase(
     private val findTransactionByNsuAndTerminalIdOutputPort: FindTransactionByNsuAndTerminalIdOutputPort,
     private val authorizeTransactionExternallyOutputPort: AuthorizeTransactionExternallyOutputPort,
     private val saveTransactionOutputPort: SaveTransactionOutputPort
-    ) : AuthorizeTransactionInputPort, LoggableClass() {
+) : AuthorizeTransactionInputPort, LoggableClass() {
 
     override fun authorize(authorizeTransactionCommand: AuthorizeTransactionCommand): AuthorizeTransactionResult {
         return inSpan(
@@ -45,7 +45,9 @@ class AuthorizeTransactionUseCase(
 
             logger.info("No existing transaction found for authorization request")
 
-            val externalAuthorization: AuthorizeTransactionExternalResult = authorizeExternally(authorizeTransactionCommand)
+            val externalAuthorization: AuthorizeTransactionExternalResult = authorizeExternally(
+                command = authorizeTransactionCommand
+            )
 
             if (externalAuthorization.result != AuthorizationStatus.AUTHORIZED) {
                 throw ExternalAuthorizationRejectedException(
@@ -53,7 +55,10 @@ class AuthorizeTransactionUseCase(
                 )
             }
 
-            val persistedTransaction: Transaction = saveAuthorizedTransaction(authorizeTransactionCommand, externalAuthorization)
+            val persistedTransaction: Transaction = saveAuthorizedTransaction(
+                command = authorizeTransactionCommand,
+                externalAuthorization = externalAuthorization
+            )
 
             AuthorizeTransactionResult.mountByTransaction(persistedTransaction)
         }
@@ -67,7 +72,7 @@ class AuthorizeTransactionUseCase(
             "Returning stored transactionId=${existingTransaction.transactionId} " +
                     "with status=${existingTransaction.status}"
         )
-        return AuthorizeTransactionResult.mountByTransaction(existingTransaction)
+        return AuthorizeTransactionResult.mountByTransaction(transaction = existingTransaction)
     }
 
     private fun authorizeExternally(command: AuthorizeTransactionCommand): AuthorizeTransactionExternalResult =

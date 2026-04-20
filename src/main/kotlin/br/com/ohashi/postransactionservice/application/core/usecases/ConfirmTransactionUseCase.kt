@@ -18,7 +18,7 @@ class ConfirmTransactionUseCase(
     private val findTransactionByTransactionIdOutputPort: FindTransactionByTransactionIdOutputPort,
     private val confirmTransactionExternallyOutputPort: ConfirmTransactionExternallyOutputPort,
     private val saveTransactionOutputPort: SaveTransactionOutputPort
-    ) : ConfirmTransactionInputPort, LoggableClass() {
+) : ConfirmTransactionInputPort, LoggableClass() {
 
     override fun confirm(confirmTransactionCommand: ConfirmTransactionCommand) {
         inSpan(
@@ -52,14 +52,14 @@ class ConfirmTransactionUseCase(
 
             logger.info("Sending external confirmation for transactionId=${transaction.transactionId}")
             val confirmationStatus: ConfirmationStatus = confirmTransactionExternallyOutputPort.confirm(
-                ConfirmTransactionExternalRequest(transactionId = transaction.transactionId)
+                request = ConfirmTransactionExternalRequest(transactionId = transaction.transactionId)
             )
             logger.info(
                 "External confirmation returned status=$confirmationStatus " +
                         "for transactionId=${transaction.transactionId}"
             )
 
-            ensureAcceptedConfirmationStatus(confirmationStatus)
+            ensureAcceptedConfirmationStatus(confirmationStatus = confirmationStatus)
 
             logger.info("Persisting confirmed transaction for transactionId=${transaction.transactionId}")
             saveTransactionOutputPort.save(
