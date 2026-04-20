@@ -10,6 +10,7 @@ import br.com.ohashi.postransactionservice.application.ports.output.SaveTransact
 import br.com.ohashi.postransactionservice.application.ports.output.requests.ConfirmTransactionExternalRequest
 import br.com.ohashi.postransactionservice.application.ports.output.responses.ConfirmationStatus
 import br.com.ohashi.postransactionservice.shared.LoggableClass
+import br.com.ohashi.postransactionservice.shared.observability.TracingSupport.inSpan
 import br.com.ohashi.postransactionservice.shared.exceptions.ExternalAuthorizationRejectedException
 import br.com.ohashi.postransactionservice.shared.exceptions.InvalidTransactionStateException
 
@@ -17,53 +18,58 @@ class ConfirmTransactionUseCase(
     private val findTransactionByTransactionIdOutputPort: FindTransactionByTransactionIdOutputPort,
     private val confirmTransactionExternallyOutputPort: ConfirmTransactionExternallyOutputPort,
     private val saveTransactionOutputPort: SaveTransactionOutputPort
-) : ConfirmTransactionInputPort, LoggableClass() {
+    ) : ConfirmTransactionInputPort, LoggableClass() {
 
     override fun confirm(confirmTransactionCommand: ConfirmTransactionCommand) {
-        logger.info(
-            "Starting transaction confirmation flow to " +
-                    "transactionId=${confirmTransactionCommand.transactionId}"
-        )
-
-        val transaction: Transaction = findTransactionByTransactionIdOutputPort.find(
-            transactionId = confirmTransactionCommand.transactionId
-        )
-        logger.info(
-            "Transaction loaded for confirmation with transactionId=${transaction.transactionId} " +
-                    "and status=${transaction.status}"
-        )
-
-        if (transaction.status == TransactionStatus.CONFIRMED) {
+        inSpan(
+            name = "usecase.confirmTransaction",
+            "transaction.transactionId" to confirmTransactionCommand.transactionId
+        ) {
             logger.info(
-                "Transaction already confirmed for transactionId=${transaction.transactionId}"
+                "Starting transaction confirmation flow to " +
+                        "transactionId=${confirmTransactionCommand.transactionId}"
             )
-            return
+
+            val transaction: Transaction = findTransactionByTransactionIdOutputPort.find(
+                transactionId = confirmTransactionCommand.transactionId
+            )
+            logger.info(
+                "Transaction loaded for confirmation with transactionId=${transaction.transactionId} " +
+                        "and status=${transaction.status}"
+            )
+
+            if (transaction.status == TransactionStatus.CONFIRMED) {
+                logger.info(
+                    "Transaction already confirmed for transactionId=${transaction.transactionId}"
+                )
+                return@inSpan
+            }
+
+            isVoidedTransactionStatus(
+                status = transaction.status,
+                transactionId = transaction.transactionId
+            )
+
+            logger.info("Sending external confirmation for transactionId=${transaction.transactionId}")
+            val confirmationStatus: ConfirmationStatus = confirmTransactionExternallyOutputPort.confirm(
+                ConfirmTransactionExternalRequest(transactionId = transaction.transactionId)
+            )
+            logger.info(
+                "External confirmation returned status=$confirmationStatus " +
+                        "for transactionId=${transaction.transactionId}"
+            )
+
+            ensureAcceptedConfirmationStatus(confirmationStatus)
+
+            logger.info("Persisting confirmed transaction for transactionId=${transaction.transactionId}")
+            saveTransactionOutputPort.save(
+                transaction = transaction.copy(
+                    status = TransactionStatus.CONFIRMED
+                )
+            )
+
+            logger.info("Transaction confirmation flow finished for transactionId=${transaction.transactionId}")
         }
-
-        isVoidedTransactionStatus(
-            status = transaction.status,
-            transactionId = transaction.transactionId
-        )
-
-        logger.info("Sending external confirmation for transactionId=${transaction.transactionId}")
-        val confirmationStatus: ConfirmationStatus = confirmTransactionExternallyOutputPort.confirm(
-            ConfirmTransactionExternalRequest(transactionId = transaction.transactionId)
-        )
-        logger.info(
-            "External confirmation returned status=$confirmationStatus " +
-                    "for transactionId=${transaction.transactionId}"
-        )
-
-        ensureAcceptedConfirmationStatus(confirmationStatus)
-
-        logger.info("Persisting confirmed transaction for transactionId=${transaction.transactionId}")
-        saveTransactionOutputPort.save(
-            transaction = transaction.copy(
-                status = TransactionStatus.CONFIRMED
-            )
-        )
-
-        logger.info("Transaction confirmation flow finished for transactionId=${transaction.transactionId}")
     }
 
     private fun isVoidedTransactionStatus(status: TransactionStatus, transactionId: String) {

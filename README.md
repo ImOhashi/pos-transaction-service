@@ -48,6 +48,7 @@ O projeto já tem um compose com:
 
 - PostgreSQL
 - WireMock
+- Grafana
 - Jaeger
 - OpenTelemetry Collector
 - Prometheus
@@ -92,9 +93,15 @@ Depois de subir tudo:
 
 - API: `http://localhost:8080`
 - PostgreSQL: `localhost:5432`
+- Grafana: `http://localhost:3000`
 - WireMock: `http://localhost:8089`
 - Jaeger UI: `http://localhost:16686`
 - Prometheus: `http://localhost:9090`
+
+Credenciais padrão do Grafana local:
+
+- usuário: `admin`
+- senha: `admin`
 
 ## Fluxo local com WireMock
 
@@ -144,6 +151,245 @@ Comportamento:
 
 - `error`: o WireMock devolve `500`
 - `timeout`: o WireMock devolve com atraso alto o suficiente para estourar o timeout do client
+
+## Grafana local
+
+O compose sobe um Grafana já provisionado com:
+
+- datasource do Prometheus
+- dashboards básicos da aplicação e do pipeline de observabilidade
+
+Arquivos de provisionamento:
+
+- [docker/grafana/provisioning/datasources/prometheus.yml](/Users/leonardofonsecaohashi/git/pos-transaction-service/docker/grafana/provisioning/datasources/prometheus.yml:1)
+- [docker/grafana/provisioning/dashboards/dashboards.yml](/Users/leonardofonsecaohashi/git/pos-transaction-service/docker/grafana/provisioning/dashboards/dashboards.yml:1)
+
+Dashboards provisionados:
+
+- [docker/grafana/dashboards/pos-overview.json](/Users/leonardofonsecaohashi/git/pos-transaction-service/docker/grafana/dashboards/pos-overview.json:1)
+- [docker/grafana/dashboards/otel-pipeline.json](/Users/leonardofonsecaohashi/git/pos-transaction-service/docker/grafana/dashboards/otel-pipeline.json:1)
+- [docker/grafana/dashboards/endpoint-calls.json](/Users/leonardofonsecaohashi/git/pos-transaction-service/docker/grafana/dashboards/endpoint-calls.json:1)
+- [docker/grafana/dashboards/resilience-overview.json](/Users/leonardofonsecaohashi/git/pos-transaction-service/docker/grafana/dashboards/resilience-overview.json:1)
+
+### Como acessar
+
+1. suba o compose:
+
+```bash
+docker compose -f docker/docker-compose.yml up -d
+```
+
+2. abra:
+
+- `http://localhost:3000`
+
+3. faça login com:
+
+- usuário: `admin`
+- senha: `admin`
+
+### O que já vem pronto
+
+Dashboard `POS Transaction Overview`:
+
+- disponibilidade do collector
+- throughput HTTP
+- duração média de requests
+- uso de CPU do processo
+- threads JVM
+- uso de memória JVM
+
+Dashboard `OTel Pipeline Health`:
+
+- status dos targets scrappeados
+- duração de scrape do collector
+
+Dashboard `Endpoint Calls`:
+
+- quantidade de chamadas com sucesso por endpoint
+- quantidade de chamadas com erro por endpoint
+- série temporal por endpoint separando `success` e `error`
+- tabela por endpoint e por status HTTP
+
+Dashboard `Resilience Overview`:
+
+- estado do circuit breaker de `externalAuthorize`, `externalConfirm` e `externalVoid`
+- quantidade de chamadas bloqueadas por circuit breaker aberto
+- failure rate e slow call rate do circuit breaker
+- volume de chamadas `successful`, `failed` e `ignored`
+- capacidade disponível e máxima do bulkhead
+
+Observação:
+
+- este dashboard cobre o que está sendo exportado hoje via métricas de `resilience4j`
+- no estado atual, não há métricas de `retry` aparecendo no Prometheus, então o dashboard está focado em `circuit breaker` e `bulkhead`
+
+### Observação importante
+
+Alguns painéis dependem de haver tráfego na aplicação.
+
+Se os gráficos aparecerem vazios:
+
+- confirme que a app está rodando
+- faça algumas chamadas HTTP para a API
+- confira `http://localhost:9090/targets`
+- confira `http://localhost:9464/metrics`
+
+## Jaeger e tracing
+
+O ambiente local também sobe o Jaeger para visualização de traces.
+
+### Como acessar
+
+- Jaeger UI: `http://localhost:16686`
+
+### Fluxo de traces no ambiente local
+
+O fluxo atual é:
+
+```text
+Aplicacao -> OTLP traces -> OTel Collector -> Jaeger
+```
+
+### O que o Jaeger mostra neste projeto
+
+O Jaeger é usado para visualizar uma execução específica de uma chamada, e não métricas agregadas.
+
+Ele ajuda a responder perguntas como:
+
+- quanto tempo uma requisição específica levou
+- quais etapas internas ela percorreu
+- onde houve mais latência
+- qual `correlationId` estava associado ao trace
+
+### Spans manuais adicionados
+
+Além do span HTTP de entrada, o projeto passou a criar spans manuais nas etapas principais do fluxo.
+
+#### Use cases
+
+- `usecase.authorizeTransaction`
+- `usecase.confirmTransaction`
+- `usecase.voidTransaction`
+
+#### Repositório
+
+- `repository.findTransactionByTransactionId`
+- `repository.findTransactionByNsuAndTerminalId`
+- `repository.saveTransaction`
+
+#### Gateway externo
+
+- `gateway.external.authorize`
+- `gateway.external.confirm`
+- `gateway.external.void`
+
+### Exemplo de árvore esperada no Jaeger
+
+#### Authorize
+
+```text
+POST /v1/pos/transactions/authorize
+└── usecase.authorizeTransaction
+    ├── repository.findTransactionByNsuAndTerminalId
+    ├── gateway.external.authorize
+    └── repository.saveTransaction
+```
+
+#### Confirm
+
+```text
+POST /v1/pos/transactions/confirm
+└── usecase.confirmTransaction
+    ├── repository.findTransactionByTransactionId
+    ├── gateway.external.confirm
+    └── repository.saveTransaction
+```
+
+#### Void
+
+```text
+POST /v1/pos/transactions/void
+└── usecase.voidTransaction
+    ├── repository.findTransactionByTransactionId
+    │   ou repository.findTransactionByNsuAndTerminalId
+    ├── gateway.external.void
+    └── repository.saveTransaction
+```
+
+### Correlation ID no trace
+
+O `correlationId` agora é propagado de duas formas:
+
+- como atributo do span
+- como baggage OpenTelemetry
+
+Na prática isso significa:
+
+- ele continua nos logs e no header `X-Correlation-Id`
+- ele também passa a aparecer no trace do Jaeger
+
+Valor esperado:
+
+- atributo do span: `correlationId`
+- baggage: `correlationId`
+
+### Como validar no Jaeger
+
+1. suba a aplicação e o compose local
+2. faça uma chamada para a API
+3. abra `http://localhost:16686`
+4. selecione o serviço `pos-transaction-service`
+5. escolha um intervalo recente, por exemplo `Last 1 hour`
+6. clique em `Find Traces`
+7. abra o trace mais recente
+
+Procure por spans com nomes como:
+
+- `usecase.authorizeTransaction`
+- `repository.saveTransaction`
+- `gateway.external.authorize`
+
+### Exemplo de chamada para gerar trace
+
+```bash
+curl -X POST 'http://localhost:8080/v1/pos/transactions/authorize' \
+  -H 'Content-Type: application/json' \
+  -H 'X-Correlation-Id: trace-demo-123' \
+  -d '{
+    "nsu": "trace-1",
+    "amount": 10.50,
+    "terminalId": "T-1000"
+  }'
+```
+
+Depois disso, no Jaeger, espere encontrar:
+
+- o trace da chamada
+- o `correlationId=trace-demo-123`
+- os spans manuais do fluxo
+
+### O que ainda nao aparece
+
+Hoje a aplicação mostra spans lógicos de persistência, mas não está instrumentando JDBC automaticamente com SQL real.
+
+Ou seja:
+
+- você vê `repository.findTransactionByTransactionId`
+- você vê `repository.saveTransaction`
+- mas não vê ainda o SQL bruto como span separado do banco
+
+Se isso for necessário, o próximo passo é adicionar instrumentação de JDBC.
+
+### Diferença entre Jaeger e Grafana/Prometheus
+
+- Jaeger: análise de uma requisição específica
+- Prometheus/Grafana: visão agregada ao longo do tempo
+
+Regra prática:
+
+- “essa chamada específica demorou por quê?” -> Jaeger
+- “quantas chamadas deram erro nos últimos 30 minutos?” -> Grafana/Prometheus
 
 ## Exemplos de chamadas locais
 

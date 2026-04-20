@@ -11,6 +11,7 @@ import br.com.ohashi.postransactionservice.application.ports.output.VoidTransact
 import br.com.ohashi.postransactionservice.application.ports.output.requests.VoidTransactionExternalRequest
 import br.com.ohashi.postransactionservice.application.ports.output.responses.VoidStatus
 import br.com.ohashi.postransactionservice.shared.LoggableClass
+import br.com.ohashi.postransactionservice.shared.observability.TracingSupport.inSpan
 import br.com.ohashi.postransactionservice.shared.exceptions.ExternalAuthorizationRejectedException
 import br.com.ohashi.postransactionservice.shared.exceptions.TransactionNotFoundException
 
@@ -19,44 +20,51 @@ class VoidTransactionUseCase(
     private val findTransactionByNsuAndTerminalIdOutputPort: FindTransactionByNsuAndTerminalIdOutputPort,
     private val voidTransactionExternallyOutputPort: VoidTransactionExternallyOutputPort,
     private val saveTransactionOutputPort: SaveTransactionOutputPort
-) : VoidTransactionInputPort, LoggableClass() {
+    ) : VoidTransactionInputPort, LoggableClass() {
 
     override fun voidTransaction(voidTransactionCommand: VoidTransactionCommand) {
-        logger.info(
-            "Starting transaction void flow for transactionId=${voidTransactionCommand.transactionId} " +
-                    "nsu=${voidTransactionCommand.nsu} terminalId=${voidTransactionCommand.terminalId}"
-        )
-
-        val transaction: Transaction = findTransaction(voidTransactionCommand)
-        logger.info(
-            "Transaction loaded for void with transactionId=${transaction.transactionId} " +
-                    "and status=${transaction.status}"
-        )
-
-        if (transaction.status == TransactionStatus.VOIDED) {
+        inSpan(
+            name = "usecase.voidTransaction",
+            "transaction.transactionId" to voidTransactionCommand.transactionId,
+            "transaction.nsu" to voidTransactionCommand.nsu,
+            "transaction.terminalId" to voidTransactionCommand.terminalId
+        ) {
             logger.info(
-                "Transaction already voided for transactionId=${transaction.transactionId}"
+                "Starting transaction void flow for transactionId=${voidTransactionCommand.transactionId} " +
+                        "nsu=${voidTransactionCommand.nsu} terminalId=${voidTransactionCommand.terminalId}"
             )
-            return
+
+            val transaction: Transaction = findTransaction(voidTransactionCommand)
+            logger.info(
+                "Transaction loaded for void with transactionId=${transaction.transactionId} " +
+                        "and status=${transaction.status}"
+            )
+
+            if (transaction.status == TransactionStatus.VOIDED) {
+                logger.info(
+                    "Transaction already voided for transactionId=${transaction.transactionId}"
+                )
+                return@inSpan
+            }
+
+            logger.info("Sending external void for transactionId=${transaction.transactionId}")
+            val voidStatus: VoidStatus = voidTransactionExternallyOutputPort.voidTransaction(
+                VoidTransactionExternalRequest(transactionId = transaction.transactionId)
+            )
+            logger.info(
+                "External void returned status=$voidStatus for transactionId=${transaction.transactionId}"
+            )
+
+            ensureAcceptedVoidStatus(voidStatus)
+
+            logger.info("Persisting voided transaction for transactionId=${transaction.transactionId}")
+            saveTransactionOutputPort.save(
+                transaction = transaction.copy(
+                    status = TransactionStatus.VOIDED
+                )
+            )
+            logger.info("Transaction void flow finished for transactionId=${transaction.transactionId}")
         }
-
-        logger.info("Sending external void for transactionId=${transaction.transactionId}")
-        val voidStatus: VoidStatus = voidTransactionExternallyOutputPort.voidTransaction(
-            VoidTransactionExternalRequest(transactionId = transaction.transactionId)
-        )
-        logger.info(
-            "External void returned status=$voidStatus for transactionId=${transaction.transactionId}"
-        )
-
-        ensureAcceptedVoidStatus(voidStatus)
-
-        logger.info("Persisting voided transaction for transactionId=${transaction.transactionId}")
-        saveTransactionOutputPort.save(
-            transaction = transaction.copy(
-                status = TransactionStatus.VOIDED
-            )
-        )
-        logger.info("Transaction void flow finished for transactionId=${transaction.transactionId}")
     }
 
     private fun findTransaction(voidTransactionCommand: VoidTransactionCommand): Transaction =

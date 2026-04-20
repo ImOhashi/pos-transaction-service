@@ -7,23 +7,32 @@ import br.com.ohashi.postransactionservice.adapters.output.repositories.Transact
 import br.com.ohashi.postransactionservice.application.core.domain.entities.Transaction
 import br.com.ohashi.postransactionservice.application.ports.output.SaveTransactionOutputPort
 import br.com.ohashi.postransactionservice.shared.LoggableClass
+import br.com.ohashi.postransactionservice.shared.observability.TracingSupport.inSpan
 import org.springframework.stereotype.Component
 
 @Component
 class SaveTransactionRepositoryAdapter(
     private val transactionRepository: TransactionRepository
-) : SaveTransactionOutputPort, LoggableClass() {
+    ) : SaveTransactionOutputPort, LoggableClass() {
 
     override fun save(transaction: Transaction): Transaction {
-        logger.info(
-            "Persisting transaction transactionId=${transaction.transactionId} " +
-                "with status=${transaction.status}"
-        )
+        return inSpan(
+            name = "repository.saveTransaction",
+            "db.system" to "postgresql",
+            "db.operation" to "UPSERT",
+            "transaction.transactionId" to transaction.transactionId,
+            "transaction.status" to transaction.status.name
+        ) {
+            logger.info(
+                "Persisting transaction transactionId=${transaction.transactionId} " +
+                    "with status=${transaction.status}"
+            )
 
-        val savedTransaction: TransactionEntity = transactionRepository.save(transaction.toEntity())
+            val savedTransaction: TransactionEntity = transactionRepository.save(transaction.toEntity())
 
-        logger.info("Transaction persisted transactionId=${savedTransaction.transactionId}")
+            logger.info("Transaction persisted transactionId=${savedTransaction.transactionId}")
 
-        return savedTransaction.toDomain()
+            savedTransaction.toDomain()
+        }
     }
 }
