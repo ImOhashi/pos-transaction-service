@@ -42,23 +42,6 @@ class ConfirmTransactionExternallyAdapterTest {
     }
 
     @Test
-    fun `should treat already confirmed response as successful idempotency`() {
-        every {
-            externalAuthorizationGateway.confirm(any())
-        } returns ExternalConfirmResponse(
-            transactionId = "txn-2",
-            result = "ALREADY_CONFIRMED",
-            message = "idempotent"
-        )
-
-        val result = ConfirmTransactionExternallyAdapter(externalAuthorizationGateway).confirm(
-            ConfirmTransactionExternalRequest(transactionId = "txn-2")
-        )
-
-        assertThat(result).isEqualTo(ConfirmationStatus.ALREADY_CONFIRMED)
-    }
-
-    @Test
     fun `should map unknown external confirmation result to error`() {
         every {
             externalAuthorizationGateway.confirm(any())

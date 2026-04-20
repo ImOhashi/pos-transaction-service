@@ -11,6 +11,7 @@ import br.com.ohashi.postransactionservice.application.ports.output.requests.Con
 import br.com.ohashi.postransactionservice.application.ports.output.responses.ConfirmationStatus
 import br.com.ohashi.postransactionservice.shared.LoggableClass
 import br.com.ohashi.postransactionservice.shared.exceptions.ExternalAuthorizationRejectedException
+import br.com.ohashi.postransactionservice.shared.exceptions.InvalidTransactionStateException
 
 class ConfirmTransactionUseCase(
     private val findTransactionByTransactionIdOutputPort: FindTransactionByTransactionIdOutputPort,
@@ -39,6 +40,11 @@ class ConfirmTransactionUseCase(
             return
         }
 
+        isVoidedTransactionStatus(
+            status = transaction.status,
+            transactionId = transaction.transactionId
+        )
+
         logger.info("Sending external confirmation for transactionId=${transaction.transactionId}")
         val confirmationStatus: ConfirmationStatus = confirmTransactionExternallyOutputPort.confirm(
             ConfirmTransactionExternalRequest(transactionId = transaction.transactionId)
@@ -60,10 +66,19 @@ class ConfirmTransactionUseCase(
         logger.info("Transaction confirmation flow finished for transactionId=${transaction.transactionId}")
     }
 
+    private fun isVoidedTransactionStatus(status: TransactionStatus, transactionId: String) {
+        if (status == TransactionStatus.VOIDED) {
+            logger.warn(
+                "Transaction cannot be confirmed because it is voided for transactionId=${transactionId}"
+            )
+            throw InvalidTransactionStateException(
+                "Transaction cannot be confirmed because it is VOIDED."
+            )
+        }
+    }
+
     private fun ensureAcceptedConfirmationStatus(confirmationStatus: ConfirmationStatus) {
-        if (confirmationStatus == ConfirmationStatus.CONFIRMED ||
-            confirmationStatus == ConfirmationStatus.ALREADY_CONFIRMED
-        ) {
+        if (confirmationStatus == ConfirmationStatus.CONFIRMED) {
             return
         }
 

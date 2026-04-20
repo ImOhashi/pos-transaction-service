@@ -4,6 +4,5 @@ import br.com.ohashi.postransactionservice.application.ports.output.requests.Voi
 import br.com.ohashi.postransactionservice.application.ports.output.responses.VoidStatus
 
 interface VoidTransactionExternallyOutputPort {
-
     fun voidTransaction(request: VoidTransactionExternalRequest): VoidStatus
 }

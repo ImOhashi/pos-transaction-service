@@ -96,34 +96,6 @@ class VoidTransactionUseCaseTest {
     }
 
     @Test
-    fun `should void transaction found by nsu and terminal id`() {
-        every {
-            findTransactionByNsuAndTerminalIdOutputPort.find("nsu-1", "terminal-1")
-        } returns transaction(transactionId = "txn-3", status = TransactionStatus.CONFIRMED)
-        every {
-            voidTransactionExternallyOutputPort.voidTransaction(any())
-        } returns VoidStatus.ALREADY_VOIDED
-        every {
-            saveTransactionOutputPort.save(any())
-        } answers { firstArg() }
-
-        useCase.voidTransaction(
-            VoidTransactionCommand(
-                nsu = "nsu-1",
-                terminalId = "terminal-1"
-            )
-        )
-
-        verify(exactly = 1) { findTransactionByNsuAndTerminalIdOutputPort.find("nsu-1", "terminal-1") }
-        verify(exactly = 1) {
-            voidTransactionExternallyOutputPort.voidTransaction(
-                VoidTransactionExternalRequest(transactionId = "txn-3")
-            )
-        }
-        verify(exactly = 1) { saveTransactionOutputPort.save(any()) }
-    }
-
-    @Test
     fun `should throw when transaction is not found by nsu and terminal id`() {
         every {
             findTransactionByNsuAndTerminalIdOutputPort.find("nsu-404", "terminal-404")
@@ -159,6 +131,24 @@ class VoidTransactionUseCaseTest {
 
         assertThat(exception is ExternalAuthorizationRejectedException).isEqualTo(true)
         assertThat(exception?.message).isEqualTo("External void was rejected with result=ERROR.")
+        verify(exactly = 0) { saveTransactionOutputPort.save(any()) }
+    }
+
+    @Test
+    fun `should propagate technical failure from external void without persistence`() {
+        every {
+            findTransactionByTransactionIdOutputPort.find("txn-tech")
+        } returns transaction(transactionId = "txn-tech", status = TransactionStatus.AUTHORIZED)
+        every {
+            voidTransactionExternallyOutputPort.voidTransaction(any())
+        } throws IllegalStateException("external void timeout")
+
+        val exception = kotlin.runCatching {
+            useCase.voidTransaction(VoidTransactionCommand(transactionId = "txn-tech"))
+        }.exceptionOrNull()
+
+        assertThat(exception is IllegalStateException).isEqualTo(true)
+        assertThat(exception?.message).isEqualTo("external void timeout")
         verify(exactly = 0) { saveTransactionOutputPort.save(any()) }
     }
 

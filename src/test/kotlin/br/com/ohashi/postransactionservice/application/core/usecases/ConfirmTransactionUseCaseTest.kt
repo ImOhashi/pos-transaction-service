@@ -11,6 +11,7 @@ import br.com.ohashi.postransactionservice.application.ports.output.SaveTransact
 import br.com.ohashi.postransactionservice.application.ports.output.requests.ConfirmTransactionExternalRequest
 import br.com.ohashi.postransactionservice.application.ports.output.responses.ConfirmationStatus
 import br.com.ohashi.postransactionservice.shared.exceptions.ExternalAuthorizationRejectedException
+import br.com.ohashi.postransactionservice.shared.exceptions.InvalidTransactionStateException
 import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
@@ -89,6 +90,22 @@ class ConfirmTransactionUseCaseTest {
     }
 
     @Test
+    fun `should throw when transaction is voided and avoid external confirmation`() {
+        every {
+            findTransactionByTransactionIdOutputPort.find("txn-voided")
+        } returns transaction(transactionId = "txn-voided", status = TransactionStatus.VOIDED)
+
+        val exception = kotlin.runCatching {
+            useCase.confirm(ConfirmTransactionCommand(transactionId = "txn-voided"))
+        }.exceptionOrNull()
+
+        assertThat(exception is InvalidTransactionStateException).isEqualTo(true)
+        assertThat(exception?.message).isEqualTo("Transaction cannot be confirmed because it is VOIDED.")
+        verify(exactly = 0) { confirmTransactionExternallyOutputPort.confirm(any()) }
+        verify(exactly = 0) { saveTransactionOutputPort.save(any()) }
+    }
+
+    @Test
     fun `should throw when external confirmation is not accepted`() {
         every {
             findTransactionByTransactionIdOutputPort.find("txn-3")
@@ -103,6 +120,24 @@ class ConfirmTransactionUseCaseTest {
 
         assertThat(exception is ExternalAuthorizationRejectedException).isEqualTo(true)
         assertThat(exception?.message).isEqualTo("External confirmation was rejected with result=ERROR.")
+        verify(exactly = 0) { saveTransactionOutputPort.save(any()) }
+    }
+
+    @Test
+    fun `should propagate technical failure from external confirmation without persistence`() {
+        every {
+            findTransactionByTransactionIdOutputPort.find("txn-tech")
+        } returns transaction(transactionId = "txn-tech", status = TransactionStatus.AUTHORIZED)
+        every {
+            confirmTransactionExternallyOutputPort.confirm(any())
+        } throws IllegalStateException("external confirmation timeout")
+
+        val exception = kotlin.runCatching {
+            useCase.confirm(ConfirmTransactionCommand(transactionId = "txn-tech"))
+        }.exceptionOrNull()
+
+        assertThat(exception is IllegalStateException).isEqualTo(true)
+        assertThat(exception?.message).isEqualTo("external confirmation timeout")
         verify(exactly = 0) { saveTransactionOutputPort.save(any()) }
     }
 

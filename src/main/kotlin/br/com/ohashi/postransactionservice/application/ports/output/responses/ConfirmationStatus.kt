@@ -2,7 +2,6 @@ package br.com.ohashi.postransactionservice.application.ports.output.responses
 
 enum class ConfirmationStatus {
     CONFIRMED,
-    ALREADY_CONFIRMED,
     ERROR;
 
     companion object {

@@ -19,10 +19,12 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
 import org.springframework.context.annotation.Primary
 import org.springframework.jdbc.core.JdbcTemplate
+import org.testcontainers.junit.jupiter.Testcontainers
 import java.math.BigDecimal
 import java.util.concurrent.atomic.AtomicInteger
 
 @SpringBootTest
+@Testcontainers(disabledWithoutDocker = true)
 @Import(
     TestcontainersConfiguration::class,
     TransactionAuthorizationIntegrationTest.StubExternalAuthorizationConfiguration::class

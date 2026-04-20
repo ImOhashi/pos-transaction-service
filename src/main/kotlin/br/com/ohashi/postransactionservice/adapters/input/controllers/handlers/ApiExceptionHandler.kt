@@ -3,6 +3,7 @@ package br.com.ohashi.postransactionservice.adapters.input.controllers.handlers
 import br.com.ohashi.postransactionservice.adapters.input.controllers.responses.error.ApiErrorResponse
 import br.com.ohashi.postransactionservice.adapters.input.controllers.responses.error.ApiValidationError
 import br.com.ohashi.postransactionservice.shared.exceptions.ExternalAuthorizationRejectedException
+import br.com.ohashi.postransactionservice.shared.exceptions.InvalidTransactionStateException
 import br.com.ohashi.postransactionservice.shared.exceptions.TransactionNotFoundException
 import feign.FeignException
 import feign.RetryableException
@@ -14,6 +15,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.validation.FieldError
+import org.springframework.validation.ObjectError
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -44,6 +46,16 @@ class ApiExceptionHandler {
     ): ResponseEntity<ApiErrorResponse> = buildErrorResponse(
         status = HttpStatus.UNPROCESSABLE_ENTITY,
         message = exception.message ?: "External authorization was rejected.",
+        request = request
+    )
+
+    @ExceptionHandler(InvalidTransactionStateException::class)
+    fun handleInvalidTransactionState(
+        exception: InvalidTransactionStateException,
+        request: HttpServletRequest
+    ): ResponseEntity<ApiErrorResponse> = buildErrorResponse(
+        status = HttpStatus.UNPROCESSABLE_ENTITY,
+        message = exception.message ?: "Transaction state transition is invalid.",
         request = request
     )
 
@@ -137,7 +149,8 @@ class ApiExceptionHandler {
         exception: MethodArgumentNotValidException,
         request: HttpServletRequest
     ): ResponseEntity<ApiErrorResponse> {
-        val errors = exception.bindingResult.fieldErrors.map(::toValidationError)
+        val errors = exception.bindingResult.fieldErrors.map(::toValidationError) +
+            exception.bindingResult.globalErrors.map(::toValidationError)
 
         return ResponseEntity.badRequest().body(
             ApiErrorResponse(
@@ -181,6 +194,12 @@ class ApiExceptionHandler {
             message = fieldError.defaultMessage ?: "Invalid value."
         )
 
+    private fun toValidationError(objectError: ObjectError): ApiValidationError =
+        ApiValidationError(
+            field = objectError.objectName,
+            message = objectError.defaultMessage ?: "Invalid value."
+        )
+
     private fun buildErrorResponse(
         status: HttpStatus,
         message: String,
@@ -200,6 +219,7 @@ class ApiExceptionHandler {
     private fun resolveExternalOperation(request: HttpServletRequest): String =
         when {
             request.requestURI.contains("/confirm") -> "confirmation"
+            request.requestURI.contains("/void") -> "void"
             else -> "authorization"
         }
 }

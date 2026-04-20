@@ -73,7 +73,7 @@ class VoidTransactionUseCase(
         }
 
     private fun ensureAcceptedVoidStatus(voidStatus: VoidStatus) {
-        if (voidStatus == VoidStatus.VOIDED || voidStatus == VoidStatus.ALREADY_VOIDED) {
+        if (voidStatus == VoidStatus.VOIDED) {
             return
         }
 

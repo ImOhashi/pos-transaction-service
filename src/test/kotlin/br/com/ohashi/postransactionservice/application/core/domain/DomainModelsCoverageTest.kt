@@ -24,13 +24,13 @@ class DomainModelsCoverageTest {
             createdAt = Instant.parse("2026-04-18T18:00:00Z")
         )
 
-        transaction.status = TransactionStatus.CONFIRMED
+        val transactionWithStatus = transaction.copy(status = TransactionStatus.CONFIRMED)
 
-        assertThat(transaction.transactionId).isEqualTo("txn-1")
-        assertThat(transaction.terminalId).isEqualTo("terminal-1")
-        assertThat(transaction.nsu).isEqualTo("nsu-1")
-        assertThat(transaction.amount).isEqualTo(BigDecimal("10.00"))
-        assertThat(transaction.status).isEqualTo(TransactionStatus.CONFIRMED)
+        assertThat(transactionWithStatus.transactionId).isEqualTo("txn-1")
+        assertThat(transactionWithStatus.terminalId).isEqualTo("terminal-1")
+        assertThat(transactionWithStatus.nsu).isEqualTo("nsu-1")
+        assertThat(transactionWithStatus.amount).isEqualTo(BigDecimal("10.00"))
+        assertThat(transactionWithStatus.status).isEqualTo(TransactionStatus.CONFIRMED)
     }
 
     @Test

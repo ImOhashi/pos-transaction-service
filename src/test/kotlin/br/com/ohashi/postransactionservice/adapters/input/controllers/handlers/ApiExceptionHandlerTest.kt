@@ -5,6 +5,7 @@ import assertk.assertions.contains
 import assertk.assertions.hasSize
 import assertk.assertions.isEqualTo
 import br.com.ohashi.postransactionservice.shared.exceptions.ExternalAuthorizationRejectedException
+import br.com.ohashi.postransactionservice.shared.exceptions.InvalidTransactionStateException
 import br.com.ohashi.postransactionservice.shared.exceptions.TransactionNotFoundException
 import feign.FeignException
 import feign.Request
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.validation.BeanPropertyBindingResult
 import org.springframework.validation.FieldError
+import org.springframework.validation.ObjectError
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.core.MethodParameter
 import java.net.URI
@@ -46,6 +48,7 @@ class ApiExceptionHandlerTest {
     private val handler = ApiExceptionHandler()
     private val request = MockHttpServletRequest().apply { requestURI = "/v1/pos/transactions/authorize" }
     private val confirmRequest = MockHttpServletRequest().apply { requestURI = "/v1/pos/transactions/confirm" }
+    private val voidRequest = MockHttpServletRequest().apply { requestURI = "/v1/pos/transactions/void" }
 
     @Test
     fun `should map external authorization rejection to unprocessable entity`() {
@@ -88,6 +91,19 @@ class ApiExceptionHandlerTest {
 
         assertThat(response.statusCode.value()).isEqualTo(422)
         assertThat(response.body?.message).isEqualTo("External authorization was rejected.")
+    }
+
+    @Test
+    fun `should map invalid transaction state to unprocessable entity`() {
+        val response = handler.handleInvalidTransactionState(
+            InvalidTransactionStateException("Transaction cannot be confirmed because it is VOIDED."),
+            confirmRequest
+        )
+
+        assertThat(response.statusCode.value()).isEqualTo(422)
+        assertThat(response.body?.message).isEqualTo("Transaction cannot be confirmed because it is VOIDED.")
+        assertThat(response.body?.error).isEqualTo("UNPROCESSABLE_ENTITY")
+        assertThat(response.body?.path).isEqualTo("/v1/pos/transactions/confirm")
     }
 
     @Test
@@ -135,6 +151,28 @@ class ApiExceptionHandlerTest {
     }
 
     @Test
+    fun `should map retryable exception on void to void timeout message`() {
+        val exception = RetryableException(
+            504,
+            "timeout",
+            Request.HttpMethod.POST,
+            Date(),
+            Request.create(
+                Request.HttpMethod.POST,
+                "http://localhost/external/transactions/void",
+                emptyMap(),
+                null,
+                RequestTemplate()
+            )
+        )
+
+        val response = handler.handleExternalAuthorizationTimeout(exception, voidRequest)
+
+        assertThat(response.statusCode.value()).isEqualTo(504)
+        assertThat(response.body?.message).isEqualTo("External void timed out after retry attempts.")
+    }
+
+    @Test
     fun `should map circuit breaker open to service unavailable`() {
         every { circuitBreaker.name } returns "externalAuthorize"
         every { circuitBreaker.state } returns CircuitBreaker.State.OPEN
@@ -162,6 +200,22 @@ class ApiExceptionHandlerTest {
         assertThat(response.statusCode.value()).isEqualTo(503)
         assertThat(response.body?.message)
             .isEqualTo("External confirmation is temporarily unavailable because the circuit breaker is open.")
+    }
+
+    @Test
+    fun `should map circuit breaker open on void to void message`() {
+        every { circuitBreaker.name } returns "externalVoid"
+        every { circuitBreaker.state } returns CircuitBreaker.State.OPEN
+        every { circuitBreaker.circuitBreakerConfig } returns CircuitBreakerConfig.ofDefaults()
+
+        val response = handler.handleExternalAuthorizationCircuitBreakerOpen(
+            CallNotPermittedException.createCallNotPermittedException(circuitBreaker),
+            voidRequest
+        )
+
+        assertThat(response.statusCode.value()).isEqualTo(503)
+        assertThat(response.body?.message)
+            .isEqualTo("External void is temporarily unavailable because the circuit breaker is open.")
     }
 
     @Test
@@ -234,6 +288,7 @@ class ApiExceptionHandlerTest {
         val target = ValidationTarget()
         val bindingResult = BeanPropertyBindingResult(target, "validationTarget")
         bindingResult.addError(FieldError("validationTarget", "nsu", "must not be blank"))
+        bindingResult.addError(ObjectError("validationTarget", "invalid combination"))
         val exception = MethodArgumentNotValidException(
             MethodParameter(ValidationTargetController::class.java.getMethod("save", ValidationTarget::class.java), 0),
             bindingResult
@@ -242,9 +297,11 @@ class ApiExceptionHandlerTest {
         val response = handler.handleMethodArgumentNotValid(exception, request)
 
         assertThat(response.statusCode.value()).isEqualTo(400)
-        assertThat(response.body?.errors ?: emptyList()).hasSize(1)
+        assertThat(response.body?.errors ?: emptyList()).hasSize(2)
         assertThat(response.body?.errors?.first()?.field).isEqualTo("nsu")
         assertThat(response.body?.errors?.first()?.message).isEqualTo("must not be blank")
+        assertThat(response.body?.errors?.last()?.field).isEqualTo("validationTarget")
+        assertThat(response.body?.errors?.last()?.message).isEqualTo("invalid combination")
     }
 
     @Test

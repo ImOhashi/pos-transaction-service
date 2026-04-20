@@ -154,4 +154,29 @@ class AuthorizeTransactionUseCaseTest {
         verify(exactly = 1) { authorizeTransactionExternallyOutputPort.authorize(any()) }
         verify(exactly = 0) { saveTransactionOutputPort.save(any()) }
     }
+
+    @Test
+    fun `should propagate technical failure from external authorization without persistence`() {
+        every {
+            findTransactionByNsuAndTerminalIdOutputPort.find("nsu-4", "terminal-4")
+        } returns null
+        every {
+            authorizeTransactionExternallyOutputPort.authorize(any())
+        } throws IllegalStateException("external timeout")
+
+        val exception = runCatching {
+            useCase.authorize(
+                AuthorizeTransactionCommand(
+                    terminalId = "terminal-4",
+                    nsu = "nsu-4",
+                    amount = BigDecimal("40.00")
+                )
+            )
+        }.exceptionOrNull() ?: error("Expected exception")
+
+        assertThat(exception).isInstanceOf(IllegalStateException::class)
+        assertThat(exception.message).isEqualTo("external timeout")
+        verify(exactly = 1) { authorizeTransactionExternallyOutputPort.authorize(any()) }
+        verify(exactly = 0) { saveTransactionOutputPort.save(any()) }
+    }
 }

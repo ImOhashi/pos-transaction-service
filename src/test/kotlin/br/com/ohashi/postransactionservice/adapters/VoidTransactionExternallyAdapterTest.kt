@@ -42,23 +42,6 @@ class VoidTransactionExternallyAdapterTest {
     }
 
     @Test
-    fun `should treat already voided response as successful idempotency`() {
-        every {
-            externalAuthorizationGateway.voidTransaction(any())
-        } returns ExternalVoidResponse(
-            transactionId = "txn-2",
-            result = "ALREADY_VOIDED",
-            message = "idempotent"
-        )
-
-        val result = VoidTransactionExternallyAdapter(externalAuthorizationGateway).voidTransaction(
-            VoidTransactionExternalRequest(transactionId = "txn-2")
-        )
-
-        assertThat(result).isEqualTo(VoidStatus.ALREADY_VOIDED)
-    }
-
-    @Test
     fun `should map unknown external void result to error`() {
         every {
             externalAuthorizationGateway.voidTransaction(any())
